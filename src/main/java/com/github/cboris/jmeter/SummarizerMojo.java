@@ -18,11 +18,13 @@ import org.apache.maven.plugin.BuildPluginManager;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.json.simple.JSONValue;
+import org.slf4j.impl.StaticLoggerBinder;
 
 
 
@@ -39,6 +41,9 @@ public class SummarizerMojo extends AbstractMojo {
     
     @Parameter(required = true)
     String keyTransaction;
+    
+    @Parameter(defaultValue = "summary")
+    String outputName;
 
     @Component
     MavenProject mavenProject;
@@ -61,10 +66,26 @@ public class SummarizerMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
        
+    	// bind slf4j to maven log
+    	StaticLoggerBinder.getSingleton().setLog(getLog());
+
+
 
         File resultsDir = new File(workingDirectory.getAbsolutePath() + File.separator + "results");
         
         for (File file :resultsDir.listFiles() ) {
+        	for ( ReportHandler handler : handlers) {
+        		if (handler.handlesKey(file)) {
+        			handler.processFile(file);
+        		}
+        	}
+        }
+        
+        
+        // fix to have target path in the context
+        File topDir = new File(workingDirectory.getAbsolutePath() + File.separator + "..");
+        
+        for (File file :topDir.listFiles() ) {
         	for ( ReportHandler handler : handlers) {
         		if (handler.handlesKey(file)) {
         			handler.processFile(file);
@@ -84,7 +105,7 @@ public class SummarizerMojo extends AbstractMojo {
 		
 		BufferedWriter out = null;
 		try {
-			out = new BufferedWriter(new FileWriter(new File(resultsDir,"summary.json")));
+			out = new BufferedWriter(new FileWriter(new File(resultsDir,outputName+".json")));
 			
 		
 			out.append(JSONValue.toJSONString(summaryKeys));

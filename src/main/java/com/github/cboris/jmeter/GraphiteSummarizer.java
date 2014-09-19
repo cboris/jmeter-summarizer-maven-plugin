@@ -18,7 +18,15 @@ import org.json.simple.parser.ContentHandler;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 public class GraphiteSummarizer {
+
+	static Logger logger = LoggerFactory.getLogger(GraphiteSummarizer.class);
 
 	
 	/**
@@ -43,26 +51,31 @@ public class GraphiteSummarizer {
 		  
 		  AggregatedAvg avg = null;
 		  try{
-		    List datapoints = (List)
-		    		((Map)
-		    				((List)parser.parse(reader, containerFactory))
-		    				.get(0))
-		    			.get("datapoints");
-		    avg = new AggregatedAvg();
+		    List l1 = (List)parser.parse(reader, containerFactory);
+		    if (l1.size() != 0) {
+		    		List datapoints = (List)((Map)(l1.get(0))).get("datapoints");
+		    		avg = new AggregatedAvg();
+				    
+				    for ( Object el : datapoints) {
+						List l = (List)el;
+						Double value = (Double)l.get(0);
+						avg.add(value);
+				    	
+						logger.debug("getting datapoints:"+l.get(0).getClass()+": "+l.get(0));
+						
+						
+					}
+		    } else {
+		    	logger.warn("no datapoints found for"+l1.getClass()+": "+l1);
+		    }
 		    
-		    for ( Object el : datapoints) {
-				List l = (List)el;
-				Double value = (Double)l.get(0);
-				avg.add(value);
-		    	//System.out.println(l.get(0).getClass()+": "+l.get(0));
-				
-			}
+		    
 		   
 		                        
 		    
 		  }
 		  catch(ParseException pe){
-		    System.out.println(pe);
+		    logger.error("Error parsing CPU Json file", pe);
 		  }
 		return avg;
 	}
@@ -72,17 +85,23 @@ public class GraphiteSummarizer {
 		AggregatedAvg avg = null;	
 		
 		try {
+			logger.debug("CPU data file:"+graphiteJSONFile);
 			reader = new BufferedReader(new FileReader(graphiteJSONFile));
 			avg = readDatapoints(reader);
+			if (avg == null) {
+				logger.warn("no data points found");
+				return null;
+			}
 			
 		} finally {
 			try {
 				if (reader != null)  reader.close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("IO error on:"+graphiteJSONFile, e);
 			}
 		}
+		
 		return (avg.avg());
 	}
 	
